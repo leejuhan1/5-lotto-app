@@ -1,0 +1,243 @@
+package com.google.android.gms.samples.vision.barcodereader;
+
+import android.app.Activity;
+import android.content.Intent;
+import android.os.Bundle;
+import android.os.Handler;
+import android.os.Message;
+import android.util.Log;
+import android.view.View;
+import android.widget.CompoundButton;
+import android.widget.TextView;
+
+import com.google.android.gms.common.api.CommonStatusCodes;
+import com.google.android.gms.vision.barcode.Barcode;
+
+import org.jsoup.Jsoup;
+import org.jsoup.nodes.Document;
+import org.jsoup.select.Elements;
+
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Objects;
+import java.util.Random;
+import java.util.Set;
+
+public class MainActivity extends Activity implements View.OnClickListener {
+
+    private CompoundButton autoFocus;
+    private CompoundButton useFlash;
+    private TextView statusMessage;
+    private TextView barcodeValue;
+
+    //***** 파싱 제대로 해오기 위한 값들 *****
+    int data_lotto_num;
+    String data_lotto_parse;
+    String data_lotto_parse_wls;
+
+    String data1, data2, data3, data4, data5, result_data;
+    String[] lotto_num_dobule;  // 파싱만 해온 값
+    String[] lotto_sample = {"1","2","3","4","5","6","7","8","9","10","11","12","13","14","15","16","17","18","19","20","21","22","23","24","25","26","27","28","29","30","31","32","33","34","35","36","37","38","39","40","41","42","43","44","45"};
+    String[] lotto_num;         // 중복 지운 값
+    String[] lotto_final = {};  // 초기화 안하면 배열 > list로 변환시 NullPointerException 에러가 뜸
+
+    private static final int RC_BARCODE_CAPTURE = 9001;
+    private static final String TAG = "BarcodeMain";
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_main);
+
+        statusMessage = (TextView)findViewById(R.id.status_message);
+        barcodeValue = (TextView)findViewById(R.id.barcode_value);
+
+        autoFocus = (CompoundButton) findViewById(R.id.auto_focus);
+        useFlash = (CompoundButton) findViewById(R.id.use_flash);
+
+        findViewById(R.id.read_barcode).setOnClickListener(this);
+    }
+
+    @Override
+    public void onClick(View v) {
+        if (v.getId() == R.id.read_barcode) {
+            // launch barcode activity.
+            Intent intent = new Intent(this, BarcodeCaptureActivity.class);
+            intent.putExtra(BarcodeCaptureActivity.AutoFocus, autoFocus.isChecked());
+            intent.putExtra(BarcodeCaptureActivity.UseFlash, useFlash.isChecked());
+
+            startActivityForResult(intent, RC_BARCODE_CAPTURE);
+        }
+
+    }
+
+     /* onactivityresult는 서브 호출하고 결과값 받아오는 함수 */
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        if (requestCode == RC_BARCODE_CAPTURE) {
+            if (resultCode == CommonStatusCodes.SUCCESS) {
+                if (data != null) {
+                    Barcode barcode = data.getParcelableExtra(BarcodeCaptureActivity.BarcodeObject);
+                    final Bundle bundle = new Bundle();
+                    new Thread() {
+                        @Override
+                        public void run() {
+                            Document doc = null;
+                            try {
+                                //***** url redireact로 제대로 값 받아오기 *****
+                                data_lotto_num = barcode.displayValue.indexOf("v");
+                                data_lotto_parse = barcode.displayValue.substring(data_lotto_num);
+                                data_lotto_parse_wls = "https://m.dhlottery.co.kr/qr.do?method=winQr&"+data_lotto_parse;
+
+                                //***** 데이터 파싱 *****
+                                doc = Jsoup.connect(data_lotto_parse_wls).get();
+                                Elements parse_data = doc.select(".list_my_number table").select("span");
+                                lotto_num_dobule = parse_data.text().split(" ");
+
+                                //***** 중복제거 ****
+                                HashSet<String> hashSet = new HashSet<>(Arrays.asList(lotto_num_dobule));
+                                lotto_num = hashSet.toArray(new String[0]);
+                                Arrays.sort(lotto_num);
+
+                                //***** 겹치는 번호 제거 한 리스트 만들기 *****
+                                List<String> lotto_temp_list = new ArrayList<>(Arrays.asList(lotto_final)); //배열 > list로 전환
+
+                                int flag = 0;
+                                for (String s : lotto_sample) {
+                                    for (String value : lotto_num) {
+                                        if (Objects.equals(s, value)) {
+                                            flag = 1;
+                                            break;
+                                        }
+                                    }
+                                    if (flag == 0) {
+                                        lotto_temp_list.add(s);
+                                    }
+                                    flag=0;
+                                }
+                                lotto_final = lotto_temp_list.toArray(new String[lotto_temp_list.size()]);
+
+                                //***** 숫자 랜덤 뽑기 *****
+                                Random rand = new Random();
+                                List<String> lotto_temp_list2 = new ArrayList<>(), lotto_temp_list3 = new ArrayList<>(), lotto_temp_list4 = new ArrayList<>(), lotto_temp_list5 = new ArrayList<>(), lotto_temp_list6 = new ArrayList<>();
+                                List<String> temp_lotto_list1 = null, temp_lotto_list2 = null, temp_lotto_list3 = null, temp_lotto_list4 = null, temp_lotto_list5 = null, temp_lotto_list6 = null;
+
+                                //***** 번호 생성하기 *****
+                                int cnt = 0;
+                                while (cnt < 1)
+                                {
+                                    lotto_temp_list2.add(lotto_final[rand.nextInt(lotto_final.length)]);
+
+                                    Set<String> set = new HashSet<String>(lotto_temp_list2);
+                                    temp_lotto_list1 =new ArrayList<String>(set);
+
+                                    if (temp_lotto_list1.size() == 6){
+                                        cnt++;
+                                    }
+                                }
+
+                                cnt=0;
+                                data1 = temp_lotto_list1.toString();
+
+                                while (cnt < 1)
+                                {
+                                    lotto_temp_list3.add(lotto_final[rand.nextInt(lotto_final.length)]);
+
+                                    Set<String> set = new HashSet<String>(lotto_temp_list3);
+                                    temp_lotto_list2 =new ArrayList<String>(set);
+
+                                    if (temp_lotto_list2.size() == 6){
+                                        cnt++;
+                                    }
+                                }
+
+                                cnt=0;
+                                data2 = temp_lotto_list2.toString();
+
+                                while (cnt < 1)
+                                {
+                                    lotto_temp_list4.add(lotto_final[rand.nextInt(lotto_final.length)]);
+
+                                    Set<String> set = new HashSet<String>(lotto_temp_list4);
+                                    temp_lotto_list3 =new ArrayList<String>(set);
+
+                                    if (temp_lotto_list3.size() == 6){
+                                        cnt++;
+                                    }
+                                }
+
+                                cnt=0;
+                                data3 = temp_lotto_list3.toString();
+
+                                while (cnt < 1)
+                                {
+                                    lotto_temp_list5.add(lotto_final[rand.nextInt(lotto_final.length)]);
+
+                                    Set<String> set = new HashSet<String>(lotto_temp_list5);
+                                    temp_lotto_list4 =new ArrayList<String>(set);
+
+                                    if (temp_lotto_list4.size() == 6){
+                                        cnt++;
+                                    }
+                                }
+
+                                cnt=0;
+                                data4 = temp_lotto_list4.toString();
+
+                                while (cnt < 1)
+                                {
+                                    lotto_temp_list6.add(lotto_final[rand.nextInt(lotto_final.length)]);
+
+                                    Set<String> set = new HashSet<String>(lotto_temp_list6);
+                                    temp_lotto_list5 =new ArrayList<String>(set);
+
+                                    if (temp_lotto_list5.size() == 6){
+                                        cnt++;
+                                    }
+                                }
+
+                                cnt=0;
+                                data5 = temp_lotto_list5.toString();
+
+                                result_data = data1 + "\n"+data2 + "\n"+data3 + "\n"+data4 + "\n"+data5;
+
+                                Log.d("tag", "result_data = "+result_data);
+
+                                bundle.putString("numbers", result_data);
+                                Message msg = handler.obtainMessage();
+                                msg.setData(bundle);
+                                handler.sendMessage(msg);
+
+                            } catch (
+                                    IOException e) {
+                                e.printStackTrace();
+                            }
+                        }
+                    }.start();
+                    statusMessage.setText(R.string.barcode_success);
+                    Log.d(TAG,"Barcode read: "+barcode.displayValue);
+                    } else{
+                        statusMessage.setText(R.string.barcode_failure);
+                        Log.d(TAG, "No barcode captured, intent data is null");
+                    }
+            } else {
+                statusMessage.setText(String.format(getString(R.string.barcode_error),
+                        CommonStatusCodes.getStatusCodeString(resultCode)));
+            }
+        }
+        else {
+            super.onActivityResult(requestCode, resultCode, data);
+        }
+    }
+
+    Handler handler = new Handler(){
+        @Override
+        public void handleMessage(Message msg) {
+            Bundle bundle = msg.getData();
+            barcodeValue.setText(bundle.getString("numbers"));//이런식으로 View를 메인 쓰레드에서 뿌려줘야한다.
+        }
+    };
+}
